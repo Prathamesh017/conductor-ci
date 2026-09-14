@@ -2,83 +2,88 @@ package cli
 
 import (
 	"fmt"
+
+	"conductor-ci/internal/theme"
+
 	tea "github.com/charmbracelet/bubbletea"
 )
 
 type model struct {
-	commands []string
-	cursor int
+	commands        []string
+	cursor          int
 	selectedCommand string
+	theme           theme.Theme
+	width           int
+	height          int
 }
 
-func  InitialModel() model {
+func InitialModel() model {
 	return model{
-		commands: []string{"Lint","Format","Test","Build","Run"},
-		cursor: 0,
+		commands:        []string{"Lint", "Format", "Test", "Build", "Run"},
+		cursor:          0,
 		selectedCommand: "",
+		theme:           theme.Default(),
 	}
 }
 
 func (m model) Init() tea.Cmd {
-    return nil
+	return nil
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-    //checking if the message sent is a key press
-    keyMsg, ok := msg.(tea.KeyMsg)
-    if !ok {
-        return m, nil
-    }
-
-    switch keyMsg.String() {
-        case "ctrl+c", "q":
-            return m, tea.Quit
-        case "up", "k":
-            if m.cursor > 0 {
-                m.cursor--
-            }
-        case "down", "j":
-            if m.cursor < len(m.commands)-1 {
-                m.cursor++
-            }
-        case "enter":
-            //select unselect flow
-            if m.selectedCommand == "" {
-                m.selectedCommand = m.commands[m.cursor]
-            } else {
-                m.selectedCommand = ""
-            }
-            
-    }
-    return m, nil
+	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+		return m, nil
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "ctrl+c", "q":
+			return m, tea.Quit
+		case "up", "k":
+			if m.cursor > 0 {
+				m.cursor--
+			}
+		case "down", "j":
+			if m.cursor < len(m.commands)-1 {
+				m.cursor++
+			}
+		case "enter":
+			if m.selectedCommand == "" {
+				m.selectedCommand = m.commands[m.cursor]
+			} else {
+				m.selectedCommand = ""
+			}
+		}
+	}
+	return m, nil
 }
 
 func (m model) View() string {
-    // The header
-    s := "What should we buy at the market?\n\n"
+	s := m.theme.Primary.Render("Welcome to the Conductor CI!") + "\n\n"
 
-    // Iterate over our choices
-    for i, choice := range m.commands {
+	for i, choice := range m.commands {
+		cursor := " "
+		if m.cursor == i {
+			cursor = ">"
+		}
 
-        // Is the cursor pointing at this choice?
-        cursor := " " // no cursor
-        if m.cursor == i {
-            cursor = ">" // cursor!
-        }
+		checked := " "
+		checkStyle := m.theme.Secondary
+		if m.selectedCommand == choice {
+			checked = "✓"
+			checkStyle = m.theme.Success
+		}
 
-        // Is this choice selected?
-        checked := " " // not selected
-        if m.selectedCommand == choice {
-            checked = "✓" // selected!
-        }
+		line := fmt.Sprintf("%s [%s] %s", cursor, checked, choice)
+		if m.cursor == i {
+			s += m.theme.Highlight.Render(line) + "\n"
+		} else {
+			s += checkStyle.Render(line) + "\n"
+		}
+	}
 
-        // Render the row
-        s += fmt.Sprintf("%s [%s] %s\n", cursor, checked, choice)
-    }
+	s += "\n" + m.theme.Subtle.Render("Press q to quit.")
 
-    // The footer
-    s += "\nPress q to quit.\n"
-
-    // Send the UI for rendering
-    return s
+	return m.theme.RenderScreen(m.width, m.height, s)
 }

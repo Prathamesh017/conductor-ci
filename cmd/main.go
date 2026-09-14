@@ -7,10 +7,8 @@ import (
 	"conductor-ci/internal/cli"
 )
 
-func main(){
- 	fmt.Println("Welcome to the Conductor CI!")
-
-	p := tea.NewProgram(cli.InitialModel())
+func main(){	
+	p := tea.NewProgram(cli.InitialModel(), tea.WithAltScreen())
  	if _, err := p.Run(); err != nil {
  		fmt.Println("Error running program:", err)
  		os.Exit(1)
