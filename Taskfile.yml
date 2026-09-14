@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+
+version: '3'
+
+vars:
+  GREETING: Welcome to the Conductor CI!
+
+tasks:
+  default:
+    desc: Print a greeting message
+    cmds:
+      - echo "{{.GREETING}}"
+    silent: true
+  run:
+     desc: Run the Conductor CI Project
+     cmds:  
+       - go run ./cmd/main.go
+     silent: true
