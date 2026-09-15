@@ -22,6 +22,12 @@ func prWorkflow(ctx workflow.Context, cfg types.WorkflowConfig) (types.Execution
 	}
 
 	for _, stage := range cfg.Execution {
+		if stage.RequiresApproval {
+			state.StageStatus[stage.Name] = types.TaskAwaiting
+			workflow.GetSignalChannel(ctx, approveSignal).Receive(ctx, nil)
+			state.StageStatus[stage.Name] = types.TaskQueued
+		}
+
 		var names []string
 		var futures []workflow.Future
 

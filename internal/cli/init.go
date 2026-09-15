@@ -73,6 +73,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "ctrl+c", "q":
 			return m, tea.Quit
+		case "a":
+			if m.screen == screenWorkflow {
+				temporal.ApproveActivity()
+			}
+			return m, nil
 		case "up", "k":
 			if !m.onMenu() {
 				return m, nil

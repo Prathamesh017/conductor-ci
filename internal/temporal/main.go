@@ -13,6 +13,7 @@ import (
 const (
 	taskQueue            = "conductor-ci-queue"
 	queryExecutionState  = "execution-state"
+	approveSignal        = "approve"
 )
 
 type silentLogger struct{}
@@ -29,6 +30,13 @@ var (
 
 func CreateTemporalClient() (client.Client, error) {
 	return client.Dial(client.Options{Logger: silentLogger{}})
+}
+
+func ApproveActivity() {
+	if temporalClient == nil || workflowRun == nil {
+		return
+	}
+	_ = temporalClient.SignalWorkflow(context.Background(), workflowRun.GetID(), workflowRun.GetRunID(), approveSignal, true)
 }
 
 func StartTemporalServer(cfg types.WorkflowConfig) types.ExecutionState {

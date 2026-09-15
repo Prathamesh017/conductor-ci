@@ -60,7 +60,11 @@ func renderWorkflow(t theme.Theme, cfg types.WorkflowConfig, state types.Executi
 
 	for _, stage := range cfg.Execution {
 		icon, _ := statusLook(t, state.StageStatus[stage.Name])
-		s += t.Secondary.Render(fmt.Sprintf("%s %s", icon, stage.Name)) + "\n"
+		stageLine := fmt.Sprintf("%s %s", icon, stage.Name)
+		if state.StageStatus[stage.Name] == types.TaskAwaiting {
+			stageLine += " (awaiting approval...)"
+		}
+		s += t.Secondary.Render(stageLine) + "\n"
 
 		for _, taskName := range stage.Tasks {
 			task := cfg.Tasks[taskName]
@@ -78,7 +82,14 @@ func renderWorkflow(t theme.Theme, cfg types.WorkflowConfig, state types.Executi
 		s += "\n"
 	}
 
-	s += t.Subtle.Render("Press enter to go back · q to quit.")
+	hint := "Press enter to go back · q to quit."
+	for _, stage := range cfg.Execution {
+		if state.StageStatus[stage.Name] == types.TaskAwaiting {
+			hint = "Press a to approve · enter to go back · q to quit."
+			break
+		}
+	}
+	s += t.Subtle.Render(hint)
 	return s
 }
 
@@ -90,6 +101,8 @@ func statusLook(t theme.Theme, status types.TaskStatus) (string, lipgloss.Style)
 		return "✗", t.Error
 	case types.TaskRunning:
 		return "⟳", t.Warning
+	case types.TaskAwaiting:
+		return "⏸", t.Warning
 	default:
 		return "⏳", t.Info
 	}
