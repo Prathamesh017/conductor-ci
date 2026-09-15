@@ -15,6 +15,11 @@ import (
 
 func prWorkflow(ctx workflow.Context, cfg types.WorkflowConfig) (types.ExecutionState, error) {
 	state := types.QueuedState(cfg)
+	if err := workflow.SetQueryHandler(ctx, queryExecutionState, func() (types.ExecutionState, error) {
+		return state, nil
+	}); err != nil {
+		return state, err
+	}
 
 	for _, stage := range cfg.Execution {
 		var names []string
@@ -27,6 +32,7 @@ func prWorkflow(ctx workflow.Context, cfg types.WorkflowConfig) (types.Execution
 				return state, nil
 			}
 
+			state.TaskStatus[taskName] = types.TaskRunning
 			future := startTask(ctx, cfg, task)
 			if stage.Mode == "parallel" {
 				names = append(names, taskName)
@@ -34,21 +40,17 @@ func prWorkflow(ctx workflow.Context, cfg types.WorkflowConfig) (types.Execution
 				continue
 			}
 
-			if err := future.Get(ctx, nil); err != nil {
+			if err := finishTask(ctx, &state, taskName, future); err != nil {
 				state.Fail(stage.Name, taskName)
 				return state, nil
 			}
-			state.TaskStatus[taskName] = types.TaskPassed
 		}
 
 		failed := false
 		for i, future := range futures {
-			if err := future.Get(ctx, nil); err != nil {
-				state.TaskStatus[names[i]] = types.TaskFailed
+			if err := finishTask(ctx, &state, names[i], future); err != nil {
 				failed = true
-				continue
 			}
-			state.TaskStatus[names[i]] = types.TaskPassed
 		}
 		if failed {
 			state.Fail(stage.Name, "")
@@ -71,16 +73,29 @@ func startTask(ctx workflow.Context, cfg types.WorkflowConfig, task types.Task) 
 	return workflow.ExecuteActivity(ctx, runTaskActivity, task.Script, cfg.Root)
 }
 
-func runTaskActivity(ctx context.Context, script string, workDir string) (string, error) {
+func finishTask(ctx workflow.Context, state *types.ExecutionState, taskName string, future workflow.Future) error {
+	var d time.Duration
+	err := future.Get(ctx, &d)
+	state.TaskDuration[taskName] = d
+	if err != nil {
+		state.TaskStatus[taskName] = types.TaskFailed
+		return err
+	}
+	state.TaskStatus[taskName] = types.TaskPassed
+	return nil
+}
+
+func runTaskActivity(ctx context.Context, script string, workDir string) (time.Duration, error) {
+	start := time.Now()
 	cmd := exec.CommandContext(ctx, "sh", "-c", script)
 	cmd.Dir = workDir
 	output, err := cmd.CombinedOutput()
-	out := strings.TrimSpace(string(output))
+	d := time.Since(start)
 	if err != nil {
-		if out != "" {
-			return "", fmt.Errorf("%w: %s", err, out)
+		if out := strings.TrimSpace(string(output)); out != "" {
+			return d, fmt.Errorf("%w: %s", err, out)
 		}
-		return "", err
+		return d, err
 	}
-	return out, nil
+	return d, nil
 }

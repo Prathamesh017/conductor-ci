@@ -10,7 +10,10 @@ import (
 	"go.temporal.io/sdk/worker"
 )
 
-const taskQueue = "conductor-ci-queue"
+const (
+	taskQueue            = "conductor-ci-queue"
+	queryExecutionState  = "execution-state"
+)
 
 type silentLogger struct{}
 
@@ -18,6 +21,11 @@ func (silentLogger) Debug(string, ...any) {}
 func (silentLogger) Info(string, ...any)  {}
 func (silentLogger) Warn(string, ...any)  {}
 func (silentLogger) Error(string, ...any) {}
+
+var (
+	temporalClient client.Client
+	workflowRun    client.WorkflowRun
+)
 
 func CreateTemporalClient() (client.Client, error) {
 	return client.Dial(client.Options{Logger: silentLogger{}})
@@ -52,11 +60,27 @@ func startWorkflow(c client.Client, cfg types.WorkflowConfig) types.ExecutionSta
 		return state
 	}
 
+	temporalClient = c
+	workflowRun = we
+
 	var state types.ExecutionState
 	if err := we.Get(context.Background(), &state); err != nil {
 		state = types.QueuedState(cfg)
 		state.WorkflowStatus = types.TaskFailed
 		return state
 	}
+	return state
+}
+
+func PollExecutionState() types.ExecutionState {
+	var state types.ExecutionState
+	if temporalClient == nil || workflowRun == nil {
+		return state
+	}
+	val, err := temporalClient.QueryWorkflow(context.Background(), workflowRun.GetID(), workflowRun.GetRunID(), queryExecutionState)
+	if err != nil {
+		return state
+	}
+	_ = val.Get(&state)
 	return state
 }

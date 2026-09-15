@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"time"
 
 	"conductor-ci/internal/parser"
 	"conductor-ci/internal/temporal"
@@ -11,9 +12,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-type workflowDoneMsg struct {
-	state types.ExecutionState
-}
+type stateTickMsg types.ExecutionState
 
 const (
 	validateWorkflowCommand    = "validate-workflow"
@@ -62,9 +61,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		return m, nil
-	case workflowDoneMsg:
-		m.state = msg.state
-		return m, nil
+	case stateTickMsg:
+		if msg.TaskStatus != nil {
+			m.state = types.ExecutionState(msg)
+		}
+		if m.state.WorkflowStatus == types.TaskPassed || m.state.WorkflowStatus == types.TaskFailed {
+			return m, nil
+		}
+		return m, pollState()
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c", "q":
@@ -104,9 +108,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.state = types.QueuedState(m.cfg)
 				m.screen = screenWorkflow
 				cfg := m.cfg
-				return m, func() tea.Msg {
-					return workflowDoneMsg{state: temporal.StartTemporalServer(cfg)}
-				}
+				return m, tea.Batch(
+					func() tea.Msg {
+						return stateTickMsg(temporal.StartTemporalServer(cfg))
+					},
+					pollState(),
+				)
 			}
 		}
 	}
@@ -124,6 +131,12 @@ func (m model) View() string {
 		body = renderMenu(m)
 	}
 	return m.theme.RenderScreen(m.width, m.height, body)
+}
+
+func pollState() tea.Cmd {
+	return tea.Tick(200*time.Millisecond, func(time.Time) tea.Msg {
+		return stateTickMsg(temporal.PollExecutionState())
+	})
 }
 
 func renderMenu(m model) string {
@@ -153,3 +166,4 @@ func renderMenu(m model) string {
 	s += "\n" + m.theme.Subtle.Render("Press q to quit.")
 	return s
 }
+

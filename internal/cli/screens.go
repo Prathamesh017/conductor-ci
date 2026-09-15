@@ -68,7 +68,9 @@ func renderWorkflow(t theme.Theme, cfg types.WorkflowConfig, state types.Executi
 			duration := state.TaskDuration[taskName]
 
 			line := fmt.Sprintf("  %s %s", icon, task.Name)
-			if duration > 0 {
+			if state.TaskStatus[taskName] == types.TaskRunning {
+				line += " (running...)"
+			} else if duration > 0 {
 				line += fmt.Sprintf(" (%s)", duration)
 			}
 			s += style.Render(line) + "\n"
