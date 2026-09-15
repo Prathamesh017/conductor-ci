@@ -85,7 +85,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.report = parser.Validate(".")
 				m.screen = screenReport
 			case startTemporalServerCommand:
-				temporal.StartTemporalServer()
+				m.report = parser.Validate(".")
+				if !m.report.Valid {
+					m.screen = screenReport
+					break
+				}
+				temporal.StartTemporalServer(*m.report.Config)
 				m.screen = screenWorkflow
 			}
 		}

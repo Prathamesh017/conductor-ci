@@ -7,8 +7,10 @@ type Workflow struct {
 }
 
 type Task struct {
-	Name   string `yaml:"name"`
-	Script string `yaml:"script"`
+	Name    string `yaml:"name"`
+	Script  string `yaml:"script"`
+	Timeout string `yaml:"timeout,omitempty"`
+	Retries int    `yaml:"retries,omitempty"`
 }
 
 type Stage struct {

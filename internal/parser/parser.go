@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"conductor-ci/internal/types"
 	"gopkg.in/yaml.v3"
 )
 
@@ -31,14 +32,14 @@ type Report struct {
 	Path   string
 	Groups []Group
 	Valid  bool
+	Config *types.WorkflowConfig
 }
 
 var ValidWorkflowFiles = []string{"workflow.yml", "workflow.yaml"}
 
-//Validate if workflow.yaml is in correct format.
+// Validate if workflow.yaml is in correct format.
 func Validate(dir string) Report {
 	report := Report{}
-
 
 	//First Check if workflow.yaml is present or not and if it is in correct format or not.
 	fileGroup, data, path, ok := runFileChecks(dir)
@@ -75,6 +76,7 @@ func Validate(dir string) Report {
 	}
 
 	report.Valid = true
+	report.Config = wf.toConfig(filepath.Dir(path))
 	return report
 }
 
@@ -98,7 +100,7 @@ func groupPassed(g Group) bool {
 func runFileChecks(dir string) (Group, []byte, string, bool) {
 	group := Group{}
 
-	path, err := isWorkflowFilePresent(dir)
+	path, err := FindWorkflowFile(dir)
 
 	if err != nil {
 		group.Checks = []Check{
@@ -134,7 +136,7 @@ func runFileChecks(dir string) (Group, []byte, string, bool) {
 	return group, data, path, true
 }
 
-func isWorkflowFilePresent(dir string) (string, error) {
+func FindWorkflowFile(dir string) (string, error) {
 	for _, name := range ValidWorkflowFiles {
 		path := filepath.Join(dir, name)
 		info, err := os.Stat(path)

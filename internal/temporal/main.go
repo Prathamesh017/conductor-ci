@@ -4,6 +4,8 @@ import (
 	"context"
 	"log"
 
+	"conductor-ci/internal/types"
+
 	"go.temporal.io/sdk/client"
 )
 
@@ -15,21 +17,21 @@ func CreateTemporalClient() (client.Client, error) {
 	return c, nil
 }
 
-func StartTemporalServer() {
+func StartTemporalServer(cfg types.WorkflowConfig) {
 	c, err := CreateTemporalClient()
 	if err != nil {
 		log.Fatalln("Unable to create Temporal client:", err)
 	}
 	defer c.Close()
 
-	createWorkflow(c, "pr-validation", "conductor-ci-queue")
+	startWorkflow(c, cfg.Name, "conductor-ci-queue", cfg)
 }
 
-func createWorkflow(c client.Client, workflowName string, queueName string) {
+func startWorkflow(c client.Client, workflowName, queueName string, cfg types.WorkflowConfig) {
 	workflowOptions := client.StartWorkflowOptions{
 		ID:        workflowName,
 		TaskQueue: queueName,
 	}
 
-	c.ExecuteWorkflow(context.Background(), workflowOptions, prValidationWorkflow, 1)
+	c.ExecuteWorkflow(context.Background(), workflowOptions, prWorkflow, cfg)
 }

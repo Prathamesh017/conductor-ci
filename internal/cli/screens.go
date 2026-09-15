@@ -54,6 +54,7 @@ func renderReport(t theme.Theme, report parser.Report) string {
 
 func renderWorkflow(t theme.Theme) string {
 	s := t.Primary.Render("Starting workflow...") + "\n\n"
+	s += t.Secondary.Render("Workflow.yaml is in correct format,run 'validate-workflow' for detailed report") + "\n"
 	s += t.Secondary.Render("Temporal client created successfully") + "\n"
 	s += t.Secondary.Render("Creating workflow: pr-validation") + "\n"
 	s += "\n" + t.Subtle.Render("Press enter to go back · q to quit.")
