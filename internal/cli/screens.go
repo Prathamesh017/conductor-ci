@@ -7,6 +7,9 @@ import (
 
 	"conductor-ci/internal/parser"
 	"conductor-ci/internal/theme"
+	"conductor-ci/internal/types"
+
+	"github.com/charmbracelet/lipgloss"
 )
 
 func renderReport(t theme.Theme, report parser.Report) string {
@@ -52,13 +55,42 @@ func renderReport(t theme.Theme, report parser.Report) string {
 	return b.String()
 }
 
-func renderWorkflow(t theme.Theme) string {
-	s := t.Primary.Render("Starting workflow...") + "\n\n"
-	s += t.Secondary.Render("Workflow.yaml is in correct format,run 'validate-workflow' for detailed report") + "\n"
-	s += t.Secondary.Render("Temporal client created successfully") + "\n"
-	s += t.Secondary.Render("Creating workflow: pr-validation") + "\n"
-	s += "\n" + t.Subtle.Render("Press enter to go back · q to quit.")
+func renderWorkflow(t theme.Theme, cfg types.WorkflowConfig, state types.ExecutionState) string {
+	s := t.Primary.Render(cfg.Name) + "\n\n"
+
+	for _, stage := range cfg.Execution {
+		icon, _ := statusLook(t, state.StageStatus[stage.Name])
+		s += t.Secondary.Render(fmt.Sprintf("%s %s", icon, stage.Name)) + "\n"
+
+		for _, taskName := range stage.Tasks {
+			task := cfg.Tasks[taskName]
+			icon, style := statusLook(t, state.TaskStatus[taskName])
+			duration := state.TaskDuration[taskName]
+
+			line := fmt.Sprintf("  %s %s", icon, task.Name)
+			if duration > 0 {
+				line += fmt.Sprintf(" (%s)", duration)
+			}
+			s += style.Render(line) + "\n"
+		}
+		s += "\n"
+	}
+
+	s += t.Subtle.Render("Press enter to go back · q to quit.")
 	return s
+}
+
+func statusLook(t theme.Theme, status types.TaskStatus) (string, lipgloss.Style) {
+	switch status {
+	case types.TaskPassed:
+		return "✓", t.Success
+	case types.TaskFailed:
+		return "✗", t.Error
+	case types.TaskRunning:
+		return "⟳", t.Warning
+	default:
+		return "⏳", t.Info
+	}
 }
 
 func renderCheck(t theme.Theme, check parser.Check) string {

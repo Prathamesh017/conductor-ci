@@ -5,9 +5,9 @@ import (
 	"log"
 
 	"conductor-ci/internal/types"
-	"go.temporal.io/sdk/worker"
 
 	"go.temporal.io/sdk/client"
+	"go.temporal.io/sdk/worker"
 )
 
 const taskQueue = "conductor-ci-queue"
@@ -20,14 +20,10 @@ func (silentLogger) Warn(string, ...any)  {}
 func (silentLogger) Error(string, ...any) {}
 
 func CreateTemporalClient() (client.Client, error) {
-	c, err := client.Dial(client.Options{Logger: silentLogger{}})
-	if err != nil {
-		log.Fatalln("Unable to create Temporal client:", err)
-	}
-	return c, nil
+	return client.Dial(client.Options{Logger: silentLogger{}})
 }
 
-func StartTemporalServer(cfg types.WorkflowConfig) {
+func StartTemporalServer(cfg types.WorkflowConfig) types.ExecutionState {
 	c, err := CreateTemporalClient()
 	if err != nil {
 		log.Fatalln("Unable to create Temporal client:", err)
@@ -42,22 +38,25 @@ func StartTemporalServer(cfg types.WorkflowConfig) {
 	}
 	defer w.Stop()
 
-	startWorkflow(c, cfg.Name, taskQueue, cfg)
+	return startWorkflow(c, cfg)
 }
 
-func startWorkflow(c client.Client, workflowName, queueName string, cfg types.WorkflowConfig) {
-	workflowOptions := client.StartWorkflowOptions{
-		ID:        workflowName,
-		TaskQueue: queueName,
+func startWorkflow(c client.Client, cfg types.WorkflowConfig) types.ExecutionState {
+	we, err := c.ExecuteWorkflow(context.Background(), client.StartWorkflowOptions{
+		ID:        cfg.Name,
+		TaskQueue: taskQueue,
+	}, prWorkflow, cfg)
+	if err != nil {
+		state := types.QueuedState(cfg)
+		state.WorkflowStatus = types.TaskFailed
+		return state
 	}
 
-	we, err := c.ExecuteWorkflow(context.Background(), workflowOptions, prWorkflow, cfg)
-	if err != nil {
-		log.Fatalln("Unable to start workflow", err)
+	var state types.ExecutionState
+	if err := we.Get(context.Background(), &state); err != nil {
+		state = types.QueuedState(cfg)
+		state.WorkflowStatus = types.TaskFailed
+		return state
 	}
-
-	err = we.Get(context.Background(), nil)
-	if err != nil {
-		log.Fatalln("Unable to get workflow result", err)
-	}
+	return state
 }

@@ -6,9 +6,14 @@ import (
 	"conductor-ci/internal/parser"
 	"conductor-ci/internal/temporal"
 	"conductor-ci/internal/theme"
+	"conductor-ci/internal/types"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
+
+type workflowDoneMsg struct {
+	state types.ExecutionState
+}
 
 const (
 	validateWorkflowCommand    = "validate-workflow"
@@ -32,6 +37,8 @@ type model struct {
 	height          int
 	screen          screen
 	report          parser.Report
+	cfg             types.WorkflowConfig
+	state           types.ExecutionState
 }
 
 func InitialModel() model {
@@ -54,6 +61,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+		return m, nil
+	case workflowDoneMsg:
+		m.state = msg.state
 		return m, nil
 	case tea.KeyMsg:
 		switch msg.String() {
@@ -90,11 +100,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.screen = screenReport
 					break
 				}
+				m.cfg = *m.report.Config
+				m.state = types.QueuedState(m.cfg)
 				m.screen = screenWorkflow
-				cfg := *m.report.Config
+				cfg := m.cfg
 				return m, func() tea.Msg {
-					temporal.StartTemporalServer(cfg)
-					return nil
+					return workflowDoneMsg{state: temporal.StartTemporalServer(cfg)}
 				}
 			}
 		}
@@ -108,7 +119,7 @@ func (m model) View() string {
 	case screenReport:
 		body = renderReport(m.theme, m.report)
 	case screenWorkflow:
-		body = renderWorkflow(m.theme)
+		body = renderWorkflow(m.theme, m.cfg, m.state)
 	default:
 		body = renderMenu(m)
 	}

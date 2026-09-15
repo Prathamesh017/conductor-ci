@@ -13,38 +13,62 @@ import (
 	"go.temporal.io/sdk/workflow"
 )
 
-func prWorkflow(ctx workflow.Context, workflowConfig types.WorkflowConfig) (string, error) {
-	var results []string
-	for _, stage := range workflowConfig.Execution {
+func prWorkflow(ctx workflow.Context, cfg types.WorkflowConfig) (types.ExecutionState, error) {
+	state := types.QueuedState(cfg)
+
+	for _, stage := range cfg.Execution {
+		var names []string
+		var futures []workflow.Future
+
 		for _, taskName := range stage.Tasks {
-			taskDef, ok := workflowConfig.Tasks[taskName]
+			task, ok := cfg.Tasks[taskName]
 			if !ok {
-				return "", fmt.Errorf("unknown task %q", taskName)
+				state.Fail(stage.Name, taskName)
+				return state, nil
 			}
 
-			activityCtx := workflow.WithActivityOptions(ctx, workflow.ActivityOptions{
-				StartToCloseTimeout: 5 * time.Minute,
-				RetryPolicy: &temporal.RetryPolicy{
-					MaximumAttempts: retryAttempts(taskDef.Retries),
-				},
-			})
-
-			var result string
-			err := workflow.ExecuteActivity(activityCtx, runTaskActivity, taskDef.Script, workflowConfig.Root).Get(activityCtx, &result)
-			if err != nil {
-				return "", err
+			future := startTask(ctx, cfg, task)
+			if stage.Mode == "parallel" {
+				names = append(names, taskName)
+				futures = append(futures, future)
+				continue
 			}
-			results = append(results, result)
+
+			if err := future.Get(ctx, nil); err != nil {
+				state.Fail(stage.Name, taskName)
+				return state, nil
+			}
+			state.TaskStatus[taskName] = types.TaskPassed
 		}
+
+		failed := false
+		for i, future := range futures {
+			if err := future.Get(ctx, nil); err != nil {
+				state.TaskStatus[names[i]] = types.TaskFailed
+				failed = true
+				continue
+			}
+			state.TaskStatus[names[i]] = types.TaskPassed
+		}
+		if failed {
+			state.Fail(stage.Name, "")
+			return state, nil
+		}
+		state.StageStatus[stage.Name] = types.TaskPassed
 	}
-	return strings.Join(results, "\n"), nil
+
+	state.WorkflowStatus = types.TaskPassed
+	return state, nil
 }
 
-func retryAttempts(retries int) int32 {
-	if retries < 0 {
-		retries = 0
-	}
-	return int32(retries) + 1
+func startTask(ctx workflow.Context, cfg types.WorkflowConfig, task types.Task) workflow.Future {
+	ctx = workflow.WithActivityOptions(ctx, workflow.ActivityOptions{
+		StartToCloseTimeout: 5 * time.Minute,
+		RetryPolicy: &temporal.RetryPolicy{
+			MaximumAttempts: int32(max(task.Retries, 0) + 1),
+		},
+	})
+	return workflow.ExecuteActivity(ctx, runTaskActivity, task.Script, cfg.Root)
 }
 
 func runTaskActivity(ctx context.Context, script string, workDir string) (string, error) {
