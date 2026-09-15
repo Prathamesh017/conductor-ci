@@ -36,15 +36,16 @@ func StartTemporalServer(cfg types.WorkflowConfig) {
 
 	w := worker.New(c, taskQueue, worker.Options{})
 	w.RegisterWorkflow(prWorkflow)
+	w.RegisterActivity(runTaskActivity)
 	if err := w.Start(); err != nil {
 		log.Fatalln(err)
 	}
 	defer w.Stop()
 
-	startWorkflow(c, cfg.Name, taskQueue, 5)
+	startWorkflow(c, cfg.Name, taskQueue, cfg)
 }
 
-func startWorkflow(c client.Client, workflowName, queueName string, cfg int) {
+func startWorkflow(c client.Client, workflowName, queueName string, cfg types.WorkflowConfig) {
 	workflowOptions := client.StartWorkflowOptions{
 		ID:        workflowName,
 		TaskQueue: queueName,

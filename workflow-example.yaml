@@ -1,14 +1,25 @@
 name: PR Validation
 tasks:
   - name: lint
-    script: go lint ./...
+    script: echo "Linting From Terminal..."
+    retries: 0
   - name: test
-    script: go test ./...
+    script: echo "Testing From Terminal..."
+    retries: 2
   - name: build
-    script: go build ./...
+    script: echo "Building From Terminal..."
+    retries: 1
   - name: deploy
-    script: echo "Deploying..."
+    script: echo "Deploying From Terminal..."
+    retries: 0
 execution:
   - stage: validation
-    tasks: [lint, test, build, deploy]
+    tasks: [lint, test]
     mode: sequential
+  - stage: build
+    tasks: [build]
+    mode: sequential
+  - stage: deploy
+    tasks: [deploy]
+    mode: sequential
+    requires_approval: true
