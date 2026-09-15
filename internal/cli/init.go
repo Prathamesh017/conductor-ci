@@ -3,10 +3,13 @@ package cli
 import (
 	"fmt"
 
+	"conductor-ci/internal/parser"
 	"conductor-ci/internal/theme"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
+
+const validateWorkflowCommand = "validate-workflow"
 
 type model struct {
 	commands        []string
@@ -15,11 +18,13 @@ type model struct {
 	theme           theme.Theme
 	width           int
 	height          int
+	report          parser.Report
+	hasReport       bool
 }
 
 func InitialModel() model {
 	return model{
-		commands:        []string{"Lint", "Format", "Test", "Build", "Run"},
+		commands:        []string{validateWorkflowCommand, "Format", "Test", "Build", "Run"},
 		cursor:          0,
 		selectedCommand: "",
 		theme:           theme.Default(),
@@ -41,16 +46,31 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c", "q":
 			return m, tea.Quit
 		case "up", "k":
+			if m.hasReport {
+				return m, nil
+			}
 			if m.cursor > 0 {
 				m.cursor--
 			}
 		case "down", "j":
+			if m.hasReport {
+				return m, nil
+			}
 			if m.cursor < len(m.commands)-1 {
 				m.cursor++
 			}
 		case "enter":
+			if m.hasReport {
+				m.hasReport = false
+				m.selectedCommand = ""
+				return m, nil
+			}
 			if m.selectedCommand == "" {
 				m.selectedCommand = m.commands[m.cursor]
+				if m.selectedCommand == validateWorkflowCommand {
+					m.report = parser.Validate(".")
+					m.hasReport = true
+				}
 			} else {
 				m.selectedCommand = ""
 			}
@@ -60,6 +80,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() string {
+	if m.hasReport {
+		return m.theme.RenderScreen(m.width, m.height, renderReport(m.theme, m.report))
+	}
+
 	s := m.theme.Primary.Render("Welcome to the Conductor CI!") + "\n\n"
 
 	for i, choice := range m.commands {
