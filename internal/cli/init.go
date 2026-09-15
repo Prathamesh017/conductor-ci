@@ -90,8 +90,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.screen = screenReport
 					break
 				}
-				temporal.StartTemporalServer(*m.report.Config)
 				m.screen = screenWorkflow
+				cfg := *m.report.Config
+				return m, func() tea.Msg {
+					temporal.StartTemporalServer(cfg)
+					return nil
+				}
 			}
 		}
 	}

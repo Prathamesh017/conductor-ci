@@ -1,31 +1,14 @@
 name: PR Validation
-
 tasks:
   - name: lint
-    script: ./scripts/lint.sh
+    script: go lint ./...
   - name: test
-    script: ./scripts/test.sh
+    script: go test ./...
   - name: build
-    script: ./scripts/build.sh
-  - name: security_scan
-    script: ./scripts/security.sh
+    script: go build ./...
   - name: deploy
-    script: ./scripts/deploy.sh
-
+    script: echo "Deploying..."
 execution:
   - stage: validation
-    tasks: [lint, test]
-    mode: parallel
-
-  - stage: build
-    tasks: [build]
-    mode: sequential
-
-  - stage: security
-    tasks: [security_scan]
-    mode: sequential
-    requires_approval: true
-
-  - stage: deploy
-    tasks: [deploy]
+    tasks: [lint, test, build, deploy]
     mode: sequential
