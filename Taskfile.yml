@@ -16,3 +16,8 @@ tasks:
      cmds:  
        - go run ./cmd/main.go
      silent: true
+  start:temporal-server:
+    desc: Run the Temporal Server
+    cmds:
+      - docker compose up -d
+    silent: true
