@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+
 	"conductor-ci/internal/parser"
 	"conductor-ci/internal/theme"
 )
@@ -49,6 +50,14 @@ func renderReport(t theme.Theme, report parser.Report) string {
 
 	b.WriteString("\n" + t.Subtle.Render("Press enter to go back · q to quit."))
 	return b.String()
+}
+
+func renderWorkflow(t theme.Theme) string {
+	s := t.Primary.Render("Starting workflow...") + "\n\n"
+	s += t.Secondary.Render("Temporal client created successfully") + "\n"
+	s += t.Secondary.Render("Creating workflow: pr-validation") + "\n"
+	s += "\n" + t.Subtle.Render("Press enter to go back · q to quit.")
+	return s
 }
 
 func renderCheck(t theme.Theme, check parser.Check) string {
