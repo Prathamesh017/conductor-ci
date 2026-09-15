@@ -78,6 +78,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				temporal.ApproveActivity()
 			}
 			return m, nil
+		case "r":
+			if m.screen == screenWorkflow {
+				temporal.RetryActivity()
+			}
+			return m, nil
 		case "up", "k":
 			if !m.onMenu() {
 				return m, nil

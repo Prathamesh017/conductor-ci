@@ -74,6 +74,8 @@ func renderWorkflow(t theme.Theme, cfg types.WorkflowConfig, state types.Executi
 			line := fmt.Sprintf("  %s %s", icon, task.Name)
 			if state.TaskStatus[taskName] == types.TaskRunning {
 				line += " (running...)"
+			} else if state.TaskStatus[taskName] == types.TaskFailed && state.WorkflowStatus == types.TaskRunning {
+				line += " (press r to retry)"
 			} else if duration > 0 {
 				line += fmt.Sprintf(" (%s)", duration)
 			}
@@ -87,6 +89,14 @@ func renderWorkflow(t theme.Theme, cfg types.WorkflowConfig, state types.Executi
 		if state.StageStatus[stage.Name] == types.TaskAwaiting {
 			hint = "Press a to approve · enter to go back · q to quit."
 			break
+		}
+	}
+	if hint == "Press enter to go back · q to quit." && state.WorkflowStatus == types.TaskRunning {
+		for _, status := range state.TaskStatus {
+			if status == types.TaskFailed {
+				hint = "Press r to retry · enter to go back · q to quit."
+				break
+			}
 		}
 	}
 	s += t.Subtle.Render(hint)

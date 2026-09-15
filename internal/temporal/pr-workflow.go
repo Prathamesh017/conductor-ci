@@ -6,9 +6,7 @@ import (
 	"os/exec"
 	"strings"
 	"time"
-
 	"conductor-ci/internal/types"
-
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
 )
@@ -38,17 +36,20 @@ func prWorkflow(ctx workflow.Context, cfg types.WorkflowConfig) (types.Execution
 				return state, nil
 			}
 
-			state.TaskStatus[taskName] = types.TaskRunning
-			future := startTask(ctx, cfg, task)
 			if stage.Mode == "parallel" {
+				state.TaskStatus[taskName] = types.TaskRunning
 				names = append(names, taskName)
-				futures = append(futures, future)
+				futures = append(futures, startTask(ctx, cfg, task))
 				continue
 			}
 
-			if err := finishTask(ctx, &state, taskName, future); err != nil {
-				state.Fail(stage.Name, taskName)
-				return state, nil
+			for {
+				state.TaskStatus[taskName] = types.TaskRunning
+				if err := finishTask(ctx, &state, taskName, startTask(ctx, cfg, task)); err != nil {
+					workflow.GetSignalChannel(ctx, retrySignal).Receive(ctx, nil)
+					continue
+				}
+				break
 			}
 		}
 
@@ -58,9 +59,24 @@ func prWorkflow(ctx workflow.Context, cfg types.WorkflowConfig) (types.Execution
 				failed = true
 			}
 		}
-		if failed {
-			state.Fail(stage.Name, "")
-			return state, nil
+		for failed {
+			workflow.GetSignalChannel(ctx, retrySignal).Receive(ctx, nil)
+			failed = false
+			var retryNames []string
+			var retryFutures []workflow.Future
+			for _, taskName := range names {
+				if state.TaskStatus[taskName] != types.TaskFailed {
+					continue
+				}
+				state.TaskStatus[taskName] = types.TaskRunning
+				retryNames = append(retryNames, taskName)
+				retryFutures = append(retryFutures, startTask(ctx, cfg, cfg.Tasks[taskName]))
+			}
+			for i, future := range retryFutures {
+				if err := finishTask(ctx, &state, retryNames[i], future); err != nil {
+					failed = true
+				}
+			}
 		}
 		state.StageStatus[stage.Name] = types.TaskPassed
 	}

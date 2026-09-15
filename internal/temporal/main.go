@@ -14,6 +14,7 @@ const (
 	taskQueue            = "conductor-ci-queue"
 	queryExecutionState  = "execution-state"
 	approveSignal        = "approve"
+	retrySignal          = "retry"
 )
 
 type silentLogger struct{}
@@ -37,6 +38,13 @@ func ApproveActivity() {
 		return
 	}
 	_ = temporalClient.SignalWorkflow(context.Background(), workflowRun.GetID(), workflowRun.GetRunID(), approveSignal, true)
+}
+
+func RetryActivity() {
+	if temporalClient == nil || workflowRun == nil {
+		return
+	}
+	_ = temporalClient.SignalWorkflow(context.Background(), workflowRun.GetID(), workflowRun.GetRunID(), retrySignal, true)
 }
 
 func StartTemporalServer(cfg types.WorkflowConfig) types.ExecutionState {
