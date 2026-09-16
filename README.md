@@ -4,6 +4,9 @@ YAML-driven CI orchestrator with a terminal UI, powered by [Temporal](https://te
 
 Define a `workflow.yaml` in **your** project, then run Conductor from that directory. Stages can run sequentially or in parallel, with approval gates, auto-retries, and manual retry.
 
+<img width="616" height="526" alt="image" src="https://github.com/user-attachments/assets/e6a2cabf-f787-42b9-aefb-cde4f7963a2a" />
+
+
 ## Dependencies
 
 | Dependency | Why |
