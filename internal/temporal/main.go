@@ -61,6 +61,8 @@ func StartTemporalServer(cfg types.WorkflowConfig) types.ExecutionState {
 	}
 	defer c.Close()
 
+	worker.SetBinaryChecksum("conductor-ci")
+
 	w := worker.New(c, taskQueue, worker.Options{})
 	w.RegisterWorkflow(prWorkflow)
 	w.RegisterActivity(runTaskActivity)
