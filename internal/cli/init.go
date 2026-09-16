@@ -72,6 +72,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c", "q":
+			if m.screen == screenWorkflow {
+				temporal.StopWorkflow()
+			}
 			return m, tea.Quit
 		case "a":
 			if m.screen == screenWorkflow {

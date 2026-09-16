@@ -47,6 +47,13 @@ func RetryActivity() {
 	_ = temporalClient.SignalWorkflow(context.Background(), workflowRun.GetID(), workflowRun.GetRunID(), retrySignal, true)
 }
 
+func StopWorkflow() {
+	if temporalClient == nil || workflowRun == nil {
+		return
+	}
+	_ = temporalClient.TerminateWorkflow(context.Background(), workflowRun.GetID(), workflowRun.GetRunID(), "Cancelled by user")
+}
+
 func StartTemporalServer(cfg types.WorkflowConfig) types.ExecutionState {
 	c, err := CreateTemporalClient()
 	if err != nil {
